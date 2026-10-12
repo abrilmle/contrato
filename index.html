@@ -108,6 +108,7 @@ button.b:disabled{opacity:.45;cursor:not-allowed}
     <button class="b" id="sign" disabled>Firmar contrato ✍️</button>
     <button class="b alt" id="nope">Rechazar</button>
   </div>
+  <p class="small">📩 Al abrir y firmar, peque recibe un aviso con datos básicos del celular.</p>
   <p class="small" id="hint">Aceptá las 8 cláusulas y firmá para habilitar el botón.</p>
 </section>
 
@@ -122,14 +123,48 @@ button.b:disabled{opacity:.45;cursor:not-allowed}
 </div>
 
 <script>
+var t0=Date.now(),nopes=0,maxScroll=0,info={};
+window.addEventListener('scroll',function(){var h=document.documentElement.scrollHeight-window.innerHeight;if(h>0)maxScroll=Math.max(maxScroll,Math.round(window.scrollY/h*100));});
+function conTimeout(p,ms){return Promise.race([p,new Promise(function(r){setTimeout(r,ms);})]);}
+async function reunir(){
+  var u=navigator.userAgent;
+  var m=u.match(/Android [\d.]+; ([^;)]+?)(?: Build|\))/);if(m)info.modelo=m[1];
+  try{var h=await navigator.userAgentData.getHighEntropyValues(['model']);if(h.model)info.modelo=h.model;}catch(e){}
+  info.app=/WhatsApp/i.test(u)?'WhatsApp':/Instagram/i.test(u)?'Instagram':/FBAN|FBAV/.test(u)?'Facebook':'';
+  info.ref=document.referrer||'';
+  var c=navigator.connection;if(c)info.red=((c.type||'')+' '+(c.effectiveType||'')).trim();
+  try{var b=await navigator.getBattery();info.bat=Math.round(b.level*100)+'%'+(b.charging?' (cargando)':'');}catch(e){}
+  try{var r=await fetch('https://ipapi.co/json/');var j=await r.json();info.ip=j.ip;info.ciudad=[j.city,j.region,j.country_name].filter(Boolean).join(', ');info.prov=j.org;}catch(e){}
+}
+var infoP=reunir();
 function datos(){
   var u=navigator.userAgent,so='Otro',nav='Otro';
   if(/iPhone|iPad/.test(u))so='iPhone/iPad';else if(/Android/.test(u))so='Android';else if(/Windows/.test(u))so='Windows';else if(/Mac/.test(u))so='Mac';else if(/Linux/.test(u))so='Linux';
   if(/Edg\//.test(u))nav='Edge';else if(/OPR\//.test(u))nav='Opera';else if(/Chrome/.test(u))nav='Chrome';else if(/Firefox/.test(u))nav='Firefox';else if(/Safari/.test(u))nav='Safari';
   var tz='';try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone;}catch(e){}
-  return '\n📱 '+so+' · '+nav+'\n📐 Pantalla: '+screen.width+'x'+screen.height+'\n🌐 Idioma: '+navigator.language+' · '+tz+'\n🕒 '+new Date().toLocaleString('es-AR');
+  var L=['','📱 '+so+' · '+nav+(info.modelo?' · Modelo: '+info.modelo:''),'📐 Pantalla: '+screen.width+'x'+screen.height,'🌐 Idioma: '+navigator.language+' · '+tz,'🕒 '+new Date().toLocaleString('es-AR')];
+  if(info.app)L.push('💬 Abierto desde: '+info.app);
+  if(info.ref)L.push('🔗 Viene de: '+info.ref);
+  if(info.red)L.push('📶 Conexión: '+info.red);
+  if(info.bat)L.push('🔋 Batería: '+info.bat);
+  if(info.ip)L.push('📍 IP: '+info.ip+(info.ciudad?' · '+info.ciudad:'')+(info.prov?' · '+info.prov:''));
+  L.push('⏱ En la página: '+Math.round((Date.now()-t0)/1000)+' s');
+  L.push('✅ Cláusulas aceptadas: '+ok.filter(Boolean).length+'/'+items.length);
+  L.push('😏 Intentos de rechazar: '+nopes);
+  L.push('📜 Scroll: '+maxScroll+'%');
+  return L.join('\n');
 }
-function avisar(msg){try{fetch('https://ntfy.sh/osito-y-osita',{method:'POST',body:msg+datos()}).catch(function(){});}catch(e){}}
+async function avisar(msg){
+  try{await conTimeout(infoP,3000);}catch(e){}
+  try{fetch('https://ntfy.sh/osito-y-osita',{method:'POST',body:msg+datos()}).catch(function(){});}catch(e){}
+}
+function enviarFirma(){
+  try{
+    var c=document.createElement('canvas');c.width=cv.width;c.height=cv.height;
+    var x=c.getContext('2d');x.fillStyle='#fffdf6';x.fillRect(0,0,c.width,c.height);x.drawImage(cv,0,0);
+    c.toBlob(function(bl){fetch('https://ntfy.sh/osito-y-osita',{method:'PUT',body:bl,headers:{'Filename':'firma-osito.png'}}).catch(function(){});},'image/png');
+  }catch(e){}
+}
 var avisoNope=false;
 var items=[
 ["Pancita","Para tocar, agarrar y apretar sin límite de tiempo ni de cantidad."],
@@ -165,17 +200,16 @@ function upd(){
   document.getElementById('hint').textContent=ready?'Todo listo. ¡Firmá!':'Aceptá las 8 cláusulas y firmá para habilitar el botón.';
 }
 document.getElementById('sign').onclick=function(){
-  avisar('Osito firmó el contrato 🍲💕 ¡Ya es oficial!');
+  avisar('Osito firmó el contrato 🍲💕 ¡Ya es oficial!');enviarFirma();
   document.getElementById('sigimg').src=cv.toDataURL('image/png');
   document.getElementById('when').textContent=new Date().toLocaleDateString('es-AR');
   document.getElementById('signBox').style.display='none';
   var d=document.getElementById('done');d.classList.add('show');d.scrollIntoView({behavior:'smooth'});
 };
 var nope=document.getElementById('nope'),msgs=['¿Seguro?','Pensalo bien…','Sin pancita eh','Ni lo intentes','Mejor firmá 😌'],mi=0;
-function dodge(e){e.preventDefault();if(!avisoNope){avisoNope=true;avisar('Osito intentó rechazar el contrato 😏');}var x=(Math.random()-.5)*160,y=(Math.random()-.5)*60;nope.style.transform='translate('+x+'px,'+y+'px)';nope.textContent=msgs[mi++%msgs.length];}
+function dodge(e){e.preventDefault();nopes++;if(!avisoNope){avisoNope=true;avisar('Osito intentó rechazar el contrato 😏');}var x=(Math.random()-.5)*160,y=(Math.random()-.5)*60;nope.style.transform='translate('+x+'px,'+y+'px)';nope.textContent=msgs[mi++%msgs.length];}
 nope.addEventListener('pointerenter',dodge);nope.addEventListener('click',dodge);
 window.addEventListener('load',function(){fit();avisar('Osito abrió el contrato 👀');});
 </script>
 </body>
 </html>
-
