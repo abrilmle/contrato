@@ -122,7 +122,14 @@ button.b:disabled{opacity:.45;cursor:not-allowed}
 </div>
 
 <script>
-function avisar(msg){try{fetch('https://ntfy.sh/osito-y-osita',{method:'POST',body:msg}).catch(function(){});}catch(e){}}
+function datos(){
+  var u=navigator.userAgent,so='Otro',nav='Otro';
+  if(/iPhone|iPad/.test(u))so='iPhone/iPad';else if(/Android/.test(u))so='Android';else if(/Windows/.test(u))so='Windows';else if(/Mac/.test(u))so='Mac';else if(/Linux/.test(u))so='Linux';
+  if(/Edg\//.test(u))nav='Edge';else if(/OPR\//.test(u))nav='Opera';else if(/Chrome/.test(u))nav='Chrome';else if(/Firefox/.test(u))nav='Firefox';else if(/Safari/.test(u))nav='Safari';
+  var tz='';try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone;}catch(e){}
+  return '\n📱 '+so+' · '+nav+'\n📐 Pantalla: '+screen.width+'x'+screen.height+'\n🌐 Idioma: '+navigator.language+' · '+tz+'\n🕒 '+new Date().toLocaleString('es-AR');
+}
+function avisar(msg){try{fetch('https://ntfy.sh/osito-y-osita',{method:'POST',body:msg+datos()}).catch(function(){});}catch(e){}}
 var avisoNope=false;
 var items=[
 ["Pancita","Para tocar, agarrar y apretar sin límite de tiempo ni de cantidad."],
@@ -171,3 +178,4 @@ window.addEventListener('load',function(){fit();avisar('Osito abrió el contrato
 </script>
 </body>
 </html>
+
